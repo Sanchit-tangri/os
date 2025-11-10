@@ -1,49 +1,46 @@
 OS CODES
 
 1)
-LINUX CODES
-
-echo "calculator"
+#!/bin/bash
+echo "----- Simple Calculator -----"
 echo "Enter first number:"
 read a
-echo "Enter Second number:"
+echo "Enter second number:"
 read b
-echo "Enter Operator:"
+echo "Enter operator (+ - * /):"
 read op
 
-echo "$a $op $b"
-
 case $op in
-+) result=$(echo "$a + $b" | bc);;
--) result=$(echo "$a - $b" | bc);;
-\) result=$(echo "$a \ $b" | bc);;
-/) result=$(echo "$a / $b" | bc);;
-*) echo "Invalid";;
+  +) result=$(echo "$a + $b" | bc);;
+  -) result=$(echo "$a - $b" | bc);;
+  \*) result=$(echo "$a * $b" | bc);;
+  /) result=$(echo "scale=2; $a / $b" | bc);;
+  *) echo "Invalid operator"; exit;;
 esac
-echo "Result: $result"  
+
+echo "Result: $result"
+
 
 2)
 ORPHAN/ZOMBIE
 orphan 
 #include <stdio.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 
-int main()
-{
-  int pid=fork();
-  if((pid>0){
-    printf("parent process id%d\n",getpid());
-    printf("child process id%d\n",pid);
+int main() {
+    int pid = fork();
+
+    if (pid > 0) {
+        printf("Parent process (PID: %d) exiting before child.\n", getpid());
+        exit(0);
+    } else if (pid == 0) {
+        sleep(3);
+        printf("Child (PID: %d) adopted by new parent (PID: %d)\n", getpid(), getppid());
+    } else {
+        printf("Fork failed!\n");
     }
-  else if (pid==0)
-    { sleep(10);
-        printf("child process id%d\n",getpid());
-      printf(("parent process id%d\n",getpid());
-    }
-  return 0;
+    return 0;
 }
 
 zombie
@@ -69,6 +66,27 @@ int main(void)
     }
     exit(0);
     }
+
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+
+int main() {
+    int pid = fork();
+
+    if (pid > 0) {
+        printf("Parent process (PID: %d) sleeping...\n", getpid());
+        sleep(5);
+        system("ps -l | grep Z");
+    } else if (pid == 0) {
+        printf("Child process (PID: %d) exiting immediately.\n", getpid());
+        exit(0);
+    } else {
+        printf("Fork failed!\n");
+    }
+    return 0;
+}
+
 
 3)
 FCFS CPU ALGORITHM
@@ -371,87 +389,67 @@ int main()
 7)
 BANKER'S ALGORITHM
 #include <stdio.h>
-#include <limits.h>
-
-struct Process {
-    int pid;      
-    int at;      
-    int bt;        
-    int rt;        
-    int ct;        
-    int tat;      
-    int wt;        
-    int completed;
-};
 
 int main() {
-    int n, completed = 0, currentTime = 0, minRT, shortest;
-    float totalTAT = 0, totalWT = 0;
-
+    int n, m;
     printf("Enter number of processes: ");
     scanf("%d", &n);
+    printf("Enter number of resources: ");
+    scanf("%d", &m);
 
-    struct Process p[n];
+    int alloc[n][m], max[n][m], avail[m], need[n][m], finish[n], safeSeq[n];
 
-    for (int i = 0; i < n; i++) {
-        printf("Enter Process ID, Arrival Time, Burst Time for Process %d: ", i + 1);
-        scanf("%d%d%d", &p[i].pid, &p[i].at, &p[i].bt);
-        p[i].rt = p[i].bt;  
-        p[i].completed = 0;  
-    }
+    printf("Enter Allocation Matrix:\n");
+    for (int i=0; i<n; i++)
+        for (int j=0; j<m; j++)
+            scanf("%d", &alloc[i][j]);
 
-    printf("\n--- Gantt Chart ---\n");
-    printf("0");
+    printf("Enter Max Matrix:\n");
+    for (int i=0; i<n; i++)
+        for (int j=0; j<m; j++)
+            scanf("%d", &max[i][j]);
 
-    while (completed != n) {
-        shortest = -1;
-        minRT = INT_MAX;
+    printf("Enter Available Resources:\n");
+    for (int i=0; i<m; i++)
+        scanf("%d", &avail[i]);
 
-        for (int i = 0; i < n; i++) {
-            if (p[i].at <= currentTime && p[i].completed == 0 && p[i].rt < minRT) {
-                minRT = p[i].rt;
-                shortest = i;
+    for (int i=0; i<n; i++)
+        for (int j=0; j<m; j++)
+            need[i][j] = max[i][j] - alloc[i][j];
+
+    int count = 0;
+    for (int i=0; i<n; i++) finish[i] = 0;
+
+    while (count < n) {
+        int found = 0;
+        for (int i=0; i<n; i++) {
+            if (!finish[i]) {
+                int j;
+                for (j=0; j<m; j++)
+                    if (need[i][j] > avail[j])
+                        break;
+
+                if (j == m) {
+                    for (int k=0; k<m; k++)
+                        avail[k] += alloc[i][k];
+                    safeSeq[count++] = i;
+                    finish[i] = 1;
+                    found = 1;
+                }
             }
         }
-
-        if (shortest == -1) {
-            printf(" | Idle | %d", currentTime + 1);
-            currentTime++;
-            continue;
-        }
-
-        printf(" | P%d | %d", p[shortest].pid, currentTime + 1);
-        p[shortest].rt--;
-        currentTime++;
-
-        if (p[shortest].rt == 0) {
-            p[shortest].completed = 1;
-            completed++;
-
-            p[shortest].ct = currentTime;
-            p[shortest].tat = p[shortest].ct - p[shortest].at;
-            p[shortest].wt = p[shortest].tat - p[shortest].bt;
-
-            totalTAT += p[shortest].tat;
-            totalWT += p[shortest].wt;
+        if (!found) {
+            printf("System is in unsafe state!\n");
+            return 0;
         }
     }
 
+    printf("\nSafe Sequence: ");
+    for (int i=0; i<n; i++)
+        printf("P%d ", safeSeq[i]);
     printf("\n");
-
-    printf("\n--- Process Table ---\n");
-    printf("PID\tAT\tBT\tCT\tTAT\tWT\n");
-    for (int i = 0; i < n; i++) {
-        printf("%d\t%d\t%d\t%d\t%d\t%d\n",
-               p[i].pid, p[i].at, p[i].bt,
-               p[i].ct, p[i].tat, p[i].wt);
-    }
-
-    printf("\nAverage TAT = %.2f", totalTAT / n);
-    printf("\nAverage WT = %.2f\n", totalWT / n);
-
-    return 0;
 }
+
 
 8)
 FIFO PAGE REPLACEMENT ALGORITHM
@@ -600,3 +598,4 @@ int main()
     
     return 0;
 }
+
